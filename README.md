@@ -1,6 +1,12 @@
 # cycjimmy/semantic-release-action
 
-Hardened GitHub Action by [Chainguard](https://www.chainguard.dev).
+Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/cycjimmy/semantic-release-action](https://github.com/cycjimmy/semantic-release-action).
+
+## Versions
+
+| Version | Tag | Upstream commit |
+|---------|-----|-----------------|
+| v6.0.0 | [`v6.0.0`](https://github.com/chainguard-actions/semantic-release-action/tree/v6.0.0) | — |
 
 ## Privacy
 
