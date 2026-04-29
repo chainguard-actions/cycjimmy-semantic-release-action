@@ -1,5 +1,7 @@
 # cycjimmy/semantic-release-action
 
+GitHub Action for Semantic Release
+
 Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/cycjimmy/semantic-release-action](https://github.com/cycjimmy/semantic-release-action).
 
 ## Versions

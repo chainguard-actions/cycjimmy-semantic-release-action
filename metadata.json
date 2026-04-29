@@ -1,5 +1,6 @@
 {
   "owner": "cycjimmy",
   "name": "semantic-release-action",
-  "visibility": ""
+  "visibility": "internal",
+  "description": "GitHub Action for Semantic Release"
 }
