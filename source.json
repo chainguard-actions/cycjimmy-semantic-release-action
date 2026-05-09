@@ -1,4 +1,6 @@
 {
-  "upstream": "cycjimmy/semantic-release-action",
-  "version": "v6.0.0"
+  "owner": "cycjimmy",
+  "repo": "semantic-release-action",
+  "version": "",
+  "url": "https://github.com/cycjimmy/semantic-release-action"
 }
