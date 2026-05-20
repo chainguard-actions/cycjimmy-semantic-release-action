@@ -1,7 +1,0 @@
-{
-  "owner": "cycjimmy",
-  "name": "semantic-release-action",
-  "visibility": "internal",
-  "description": "GitHub Action for Semantic Release",
-  "block_publish": false
-}
