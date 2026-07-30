@@ -1,6 +1,16 @@
 {
   "owner": "cycjimmy",
   "repo": "semantic-release-action",
-  "version": "",
-  "url": "https://github.com/cycjimmy/semantic-release-action"
+  "version": "v2.7.0",
+  "commit_sha": "5982a02995853159735cb838992248c4f0f16166",
+  "url": "https://github.com/cycjimmy/semantic-release-action",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "2",
+  "harden_agent_version": "2",
+  "node_artifact": {
+    "gcs_uri": "gs://prod-actions-node-artifacts/node-artifacts/cycjimmy/semantic-release-action/v2.7.0/sha256-1abc6b3e400766726f756185c48293afec5519fb09dcc3846d27c713516bcc33.tar.gz",
+    "sha256": "1abc6b3e400766726f756185c48293afec5519fb09dcc3846d27c713516bcc33",
+    "size_bytes": 88917
+  }
 }

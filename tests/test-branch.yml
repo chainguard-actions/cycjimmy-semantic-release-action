@@ -1,0 +1,27 @@
+name: Test branch input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - id: action
+        uses: .
+        with:
+          branch: master
+          dry_run: 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assert outputs are present
+        env:
+          NEW_RELEASE_PUBLISHED: ${{ steps.action.outputs.new_release_published }}
+        run: |
+          echo "new_release_published: $NEW_RELEASE_PUBLISHED"
+          if [ -z "$NEW_RELEASE_PUBLISHED" ] && [ "$NEW_RELEASE_PUBLISHED" != "true" ] && [ "$NEW_RELEASE_PUBLISHED" != "false" ]; then
+            echo "FAIL: expected new_release_published to be set"
+            exit 1
+          fi
+          echo "PASS: branch input accepted and action completed"

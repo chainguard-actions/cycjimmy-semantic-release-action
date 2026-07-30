@@ -1,0 +1,35 @@
+name: Test working_directory input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Create working directory with package.json
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/subproject"
+          cat > "$GITHUB_WORKSPACE/subproject/package.json" <<'EOF'
+          {
+            "name": "subproject",
+            "version": "0.0.0-development",
+            "release": {
+              "branches": ["act-harness", "main", "master"]
+            }
+          }
+          EOF
+      - id: action
+        uses: .
+        with:
+          working_directory: subproject
+          dry_run: 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assert action completed with working_directory
+        env:
+          NEW_RELEASE_PUBLISHED: ${{ steps.action.outputs.new_release_published }}
+        run: |
+          echo "new_release_published: $NEW_RELEASE_PUBLISHED"
+          echo "PASS: working_directory input accepted and action completed"

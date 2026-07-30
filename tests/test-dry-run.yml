@@ -1,0 +1,66 @@
+name: Test dry-run mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create minimal release workspace in repo root
+        run: |
+          cat > "$GITHUB_WORKSPACE/package.json" << 'EOF'
+          {
+            "name": "test-workspace",
+            "version": "0.0.0",
+            "private": true
+          }
+          EOF
+          cat > "$GITHUB_WORKSPACE/release.config.js" << 'EOF'
+          module.exports = {
+            plugins: ['@semantic-release/commit-analyzer'],
+          };
+          EOF
+
+      - name: Set up git origin reachable from action
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: release
+        uses: .
+        with:
+          dry_run: 'true'
+          branches: 'act-harness'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assert action completed (no release expected without releasable commits)
+        env:
+          NEW_RELEASE_PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+        run: |
+          echo "new_release_published: '$NEW_RELEASE_PUBLISHED'"
+          # The action should complete without error.
+          # Without conventional commits that trigger a release, new_release_published is false/empty.
+          if [ "$NEW_RELEASE_PUBLISHED" = "true" ]; then
+            echo "INFO: A new release was published (dry-run). Checking version output..."
+            VERSION="${{ steps.release.outputs.new_release_version }}"
+            echo "new_release_version: '$VERSION'"
+            if [ -z "$VERSION" ]; then
+              echo "FAIL: new_release_published is true but new_release_version is empty"
+              exit 1
+            fi
+            echo "PASS: release published with version $VERSION"
+          else
+            echo "PASS: no release published (no releasable commits on act-harness branch)"
+          fi
