@@ -64,5 +64,6 @@ outputs:
   last_release_git_tag:
     description: 'The Git tag associated with the last release, if there was one.'
 runs:
+  pre: chainguard-phonehome.js
   using: 'node24'
   main: 'index.js'

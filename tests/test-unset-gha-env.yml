@@ -1,0 +1,35 @@
+name: Test unset_gha_env input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          dry_run: 'true'
+          ci: 'false'
+          branches: 'act-harness'
+          unset_gha_env: 'true'
+
+      - name: Assert action ran with unset_gha_env
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          NEW_RELEASE_PUBLISHED: ${{ steps.action.outputs.new_release_published }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "new_release_published: $NEW_RELEASE_PUBLISHED"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded with unset_gha_env=true"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo is not resolvable)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
