@@ -1,0 +1,10 @@
+{
+  "status": "unbundlable",
+  "entries": [
+    {
+      "path": "index.js",
+      "status": "unbundlable",
+      "reason": "Could not resolve \"@actions/core\""
+    }
+  ]
+}
