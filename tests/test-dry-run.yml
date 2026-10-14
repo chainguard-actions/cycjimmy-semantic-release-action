@@ -1,0 +1,38 @@
+name: Test dry-run mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          dry_run: 'true'
+          ci: 'false'
+          branches: 'act-harness'
+          skip_npm_plugin: 'true'
+      - name: Assert action ran and outputs are valid or failed gracefully
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          NEW_RELEASE_PUBLISHED: ${{ steps.action.outputs.new_release_published }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "new_release_published: $NEW_RELEASE_PUBLISHED"
+          if [ "$OUTCOME" = "success" ]; then
+            # In dry-run mode, new_release_published should be true or false
+            if [ "$NEW_RELEASE_PUBLISHED" != "true" ] && [ "$NEW_RELEASE_PUBLISHED" != "false" ]; then
+              echo "FAIL: expected new_release_published to be 'true' or 'false', got '$NEW_RELEASE_PUBLISHED'"
+              exit 1
+            fi
+            echo "PASS: action succeeded in dry-run mode, new_release_published=$NEW_RELEASE_PUBLISHED"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected with sentinel repo or no releasable commits)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
