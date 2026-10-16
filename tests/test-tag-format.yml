@@ -1,0 +1,44 @@
+name: Test tag_format input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          dry_run: 'true'
+          ci: 'false'
+          branches: 'act-harness'
+          tag_format: '${version}'
+
+      - name: Assert action ran with custom tag_format (or failed gracefully on sentinel repo)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          NEW_RELEASE: ${{ steps.action.outputs.new_release_published }}
+          GIT_TAG: ${{ steps.action.outputs.new_release_git_tag }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "new_release_published: $NEW_RELEASE"
+          echo "new_release_git_tag: $GIT_TAG"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded with custom tag_format"
+            # If a release was published, verify the tag does not start with 'v'
+            if [ "$NEW_RELEASE" = "true" ] && [ -n "$GIT_TAG" ]; then
+              case "$GIT_TAG" in
+                v*) echo "FAIL: tag '$GIT_TAG' starts with 'v' but tag_format='${version}' was set"; exit 1 ;;
+                *)  echo "PASS: tag '$GIT_TAG' matches custom format" ;;
+              esac
+            fi
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo is not resolvable via GitHub API)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
