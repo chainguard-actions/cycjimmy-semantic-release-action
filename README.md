@@ -18,6 +18,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v8.0.2 | [`v8.0.2`](https://github.com/chainguard-actions/cycjimmy-semantic-release-action/tree/v8.0.2) | [`2a8f1fb`](https://github.com/cycjimmy/semantic-release-action/commit/2a8f1fb80c292f4b71a808d78655ee474fc6e725) |
 | v8.1.0 | [`v8.1.0`](https://github.com/chainguard-actions/cycjimmy-semantic-release-action/tree/v8.1.0) | [`9e1f8a3`](https://github.com/cycjimmy/semantic-release-action/commit/9e1f8a3ef91f1097285028e799a5fb8bb90e8899) |
 | v8.1.2 | [`v8.1.2`](https://github.com/chainguard-actions/cycjimmy-semantic-release-action/tree/v8.1.2) | [`03595b5`](https://github.com/cycjimmy/semantic-release-action/commit/03595b5eaf44910cf239ff20904cc52d410f97d4) |
+| v8.1.3 | [`v8.1.3`](https://github.com/chainguard-actions/cycjimmy-semantic-release-action/tree/v8.1.3) | [`d9bf53a`](https://github.com/cycjimmy/semantic-release-action/commit/d9bf53a078bd2f86aaffaec796dbb3d28f1b6f34) |
 
 ## Privacy
 
