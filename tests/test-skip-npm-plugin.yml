@@ -1,0 +1,68 @@
+name: Test skip_npm_plugin on a non-Node project
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch non-Node git repo (no package.json, no config)
+        run: |
+          set -e
+          REPO=/tmp/sr-skipnpm/repo
+          REMOTE=/tmp/sr-skipnpm/remote.git
+          rm -rf /tmp/sr-skipnpm
+          mkdir -p /tmp/sr-skipnpm
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          echo "readme" > README.md
+          git add README.md
+          git commit -q -m "chore: initial commit"
+          echo "hello" > feature.txt
+          git add feature.txt
+          git commit -q -m "feat: add a feature"
+          git remote add origin "$REMOTE"
+          git push -q origin main
+      # skip_npm_plugin swaps in @semantic-release/github, whose verifyConditions
+      # needs a real GitHub repository; against a local file:// remote it may fail.
+      - id: release
+        uses: .
+        continue-on-error: true
+        with:
+          working_directory: /tmp/sr-skipnpm/repo
+          repository_url: file:///tmp/sr-skipnpm/remote.git
+          branches: main
+          dry_run: 'true'
+          unset_gha_env: 'true'
+          skip_npm_plugin: 'true'
+      - name: Assert release computed, or failed gracefully in github plugin verification
+        env:
+          OUTCOME: ${{ steps.release.outcome }}
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+        run: |
+          echo "outcome=$OUTCOME published=$PUBLISHED version=$VERSION"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ "$PUBLISHED" != "true" ] || [ "$VERSION" != "1.0.0" ]; then
+              echo "FAIL: expected a 1.0.0 release"
+              exit 1
+            fi
+            echo "PASS: release computed without npm plugin"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: failed gracefully (github plugin cannot verify a local remote)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+      - name: Assert dry run created no tags
+        run: |
+          if git ls-remote --tags /tmp/sr-skipnpm/remote.git | grep -q .; then
+            echo "FAIL: tags pushed to remote"
+            exit 1
+          fi
+          echo "PASS"

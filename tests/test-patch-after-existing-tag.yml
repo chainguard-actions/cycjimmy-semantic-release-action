@@ -1,0 +1,76 @@
+name: Test patch release after an existing tag
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch git repo with tag v1.2.3 and a fix commit
+        id: setup
+        run: |
+          set -e
+          REPO=/tmp/sr-patch/repo
+          REMOTE=/tmp/sr-patch/remote.git
+          rm -rf /tmp/sr-patch
+          mkdir -p /tmp/sr-patch
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          cat > .releaserc.json <<'EOF'
+          {
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator"
+            ]
+          }
+          EOF
+          git add .releaserc.json
+          git commit -q -m "feat: initial feature"
+          git tag v1.2.3
+          echo "tagged=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "fix" > fix.txt
+          git add fix.txt
+          git commit -q -m "fix: correct a bug"
+          git remote add origin "$REMOTE"
+          git push -q origin main --tags
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: release
+        uses: .
+        with:
+          working_directory: /tmp/sr-patch/repo
+          repository_url: file:///tmp/sr-patch/remote.git
+          branches: '["main"]'
+          dry_run: 'true'
+          unset_gha_env: 'true'
+      - name: Assert patch release 1.2.4 and last release 1.2.3
+        env:
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+          MAJOR: ${{ steps.release.outputs.new_release_major_version }}
+          MINOR: ${{ steps.release.outputs.new_release_minor_version }}
+          PATCH: ${{ steps.release.outputs.new_release_patch_version }}
+          TAG: ${{ steps.release.outputs.new_release_git_tag }}
+          LAST_VERSION: ${{ steps.release.outputs.last_release_version }}
+          LAST_TAG: ${{ steps.release.outputs.last_release_git_tag }}
+          LAST_HEAD: ${{ steps.release.outputs.last_release_git_head }}
+          EXPECTED_LAST_HEAD: ${{ steps.setup.outputs.tagged }}
+        run: |
+          echo "published=$PUBLISHED version=$VERSION ($MAJOR.$MINOR.$PATCH) tag=$TAG"
+          echo "last=$LAST_VERSION last_tag=$LAST_TAG last_head=$LAST_HEAD expected_last_head=$EXPECTED_LAST_HEAD"
+          fail=0
+          [ "$PUBLISHED" = "true" ] || { echo "FAIL: new_release_published should be true"; fail=1; }
+          [ "$VERSION" = "1.2.4" ] || { echo "FAIL: version should be 1.2.4"; fail=1; }
+          [ "$MAJOR" = "1" ] || { echo "FAIL: major should be 1"; fail=1; }
+          [ "$MINOR" = "2" ] || { echo "FAIL: minor should be 2"; fail=1; }
+          [ "$PATCH" = "4" ] || { echo "FAIL: patch should be 4"; fail=1; }
+          [ "$TAG" = "v1.2.4" ] || { echo "FAIL: tag should be v1.2.4"; fail=1; }
+          [ "$LAST_VERSION" = "1.2.3" ] || { echo "FAIL: last_release_version should be 1.2.3"; fail=1; }
+          [ "$LAST_TAG" = "v1.2.3" ] || { echo "FAIL: last_release_git_tag should be v1.2.3"; fail=1; }
+          [ "$LAST_HEAD" = "$EXPECTED_LAST_HEAD" ] || { echo "FAIL: last_release_git_head mismatch"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "PASS"

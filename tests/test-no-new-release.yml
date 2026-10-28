@@ -1,0 +1,64 @@
+name: Test no new release when HEAD is already tagged
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch git repo whose HEAD is tagged v2.0.0
+        id: setup
+        run: |
+          set -e
+          REPO=/tmp/sr-none/repo
+          REMOTE=/tmp/sr-none/remote.git
+          rm -rf /tmp/sr-none
+          mkdir -p /tmp/sr-none
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          cat > .releaserc.json <<'EOF'
+          {
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator"
+            ]
+          }
+          EOF
+          git add .releaserc.json
+          git commit -q -m "feat: initial feature"
+          git tag v2.0.0
+          git remote add origin "$REMOTE"
+          git push -q origin main --tags
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: release
+        uses: .
+        with:
+          working_directory: /tmp/sr-none/repo
+          repository_url: /tmp/sr-none/remote.git
+          branches: main
+          dry_run: 'true'
+          unset_gha_env: 'true'
+      - name: Assert no new release but last release is reported
+        env:
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+          LAST_VERSION: ${{ steps.release.outputs.last_release_version }}
+          LAST_TAG: ${{ steps.release.outputs.last_release_git_tag }}
+          LAST_HEAD: ${{ steps.release.outputs.last_release_git_head }}
+          EXPECTED_HEAD: ${{ steps.setup.outputs.head }}
+        run: |
+          echo "published='$PUBLISHED' version='$VERSION'"
+          echo "last=$LAST_VERSION last_tag=$LAST_TAG last_head=$LAST_HEAD expected=$EXPECTED_HEAD"
+          fail=0
+          [ "$PUBLISHED" != "true" ] || { echo "FAIL: no release should be published"; fail=1; }
+          [ -z "$VERSION" ] || { echo "FAIL: new_release_version should be empty"; fail=1; }
+          [ "$LAST_VERSION" = "2.0.0" ] || { echo "FAIL: last_release_version should be 2.0.0"; fail=1; }
+          [ "$LAST_TAG" = "v2.0.0" ] || { echo "FAIL: last_release_git_tag should be v2.0.0"; fail=1; }
+          [ "$LAST_HEAD" = "$EXPECTED_HEAD" ] || { echo "FAIL: last_release_git_head mismatch"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "PASS"

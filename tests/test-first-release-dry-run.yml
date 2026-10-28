@@ -1,0 +1,87 @@
+name: Test first release in dry-run mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch git repo with a local bare remote
+        id: setup
+        run: |
+          set -e
+          REPO=/tmp/sr-first/repo
+          REMOTE=/tmp/sr-first/remote.git
+          rm -rf /tmp/sr-first
+          mkdir -p /tmp/sr-first
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          cat > .releaserc.json <<'EOF'
+          {
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator"
+            ]
+          }
+          EOF
+          git add .releaserc.json
+          git commit -q -m "chore: initial commit"
+          echo "hello" > feature.txt
+          git add feature.txt
+          git commit -q -m "feat: add a feature"
+          git remote add origin "$REMOTE"
+          git push -q origin main
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: release
+        uses: .
+        with:
+          working_directory: /tmp/sr-first/repo
+          repository_url: file:///tmp/sr-first/remote.git
+          branches: main
+          dry_run: 'true'
+          unset_gha_env: 'true'
+      - name: Assert a 1.0.0 release would be published
+        env:
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+          MAJOR: ${{ steps.release.outputs.new_release_major_version }}
+          MINOR: ${{ steps.release.outputs.new_release_minor_version }}
+          PATCH: ${{ steps.release.outputs.new_release_patch_version }}
+          TAG: ${{ steps.release.outputs.new_release_git_tag }}
+          HEAD_SHA: ${{ steps.release.outputs.new_release_git_head }}
+          EXPECTED_HEAD: ${{ steps.setup.outputs.head }}
+          NOTES: ${{ steps.release.outputs.new_release_notes }}
+          LAST_VERSION: ${{ steps.release.outputs.last_release_version }}
+        run: |
+          echo "published=$PUBLISHED version=$VERSION major=$MAJOR minor=$MINOR patch=$PATCH tag=$TAG"
+          echo "git_head=$HEAD_SHA expected=$EXPECTED_HEAD last_version=$LAST_VERSION"
+          echo "notes: $NOTES"
+          fail=0
+          [ "$PUBLISHED" = "true" ] || { echo "FAIL: new_release_published should be true"; fail=1; }
+          [ "$VERSION" = "1.0.0" ] || { echo "FAIL: version should be 1.0.0"; fail=1; }
+          [ "$MAJOR" = "1" ] || { echo "FAIL: major should be 1"; fail=1; }
+          [ "$MINOR" = "0" ] || { echo "FAIL: minor should be 0"; fail=1; }
+          [ "$PATCH" = "0" ] || { echo "FAIL: patch should be 0"; fail=1; }
+          [ "$TAG" = "v1.0.0" ] || { echo "FAIL: tag should be v1.0.0"; fail=1; }
+          [ "$HEAD_SHA" = "$EXPECTED_HEAD" ] || { echo "FAIL: git_head mismatch"; fail=1; }
+          [ -z "$LAST_VERSION" ] || { echo "FAIL: last_release_version should be empty"; fail=1; }
+          echo "$NOTES" | grep -q "add a feature" || { echo "FAIL: notes should mention the feature commit"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "PASS"
+      - name: Assert dry-run did not create a tag
+        run: |
+          cd /tmp/sr-first/repo
+          if git tag | grep -q .; then
+            echo "FAIL: dry run created tags: $(git tag)"
+            exit 1
+          fi
+          if git ls-remote --tags /tmp/sr-first/remote.git | grep -q .; then
+            echo "FAIL: dry run pushed tags to remote"
+            exit 1
+          fi
+          echo "PASS"

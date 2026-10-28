@@ -1,0 +1,64 @@
+name: Test custom tag_format
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch git repo with tag release-1.0.0 and a feat commit
+        run: |
+          set -e
+          REPO=/tmp/sr-tagfmt/repo
+          REMOTE=/tmp/sr-tagfmt/remote.git
+          rm -rf /tmp/sr-tagfmt
+          mkdir -p /tmp/sr-tagfmt
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          cat > .releaserc.json <<'EOF'
+          {
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator"
+            ]
+          }
+          EOF
+          git add .releaserc.json
+          git commit -q -m "feat: initial feature"
+          git tag release-1.0.0
+          echo "more" > more.txt
+          git add more.txt
+          git commit -q -m "feat: another feature"
+          git remote add origin "$REMOTE"
+          git push -q origin main --tags
+      - id: release
+        uses: .
+        with:
+          working_directory: /tmp/sr-tagfmt/repo
+          repository_url: file:///tmp/sr-tagfmt/remote.git
+          branches: main
+          tag_format: 'release-${version}'
+          dry_run: 'true'
+          unset_gha_env: 'true'
+      - name: Assert minor release with custom tag format
+        env:
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+          TAG: ${{ steps.release.outputs.new_release_git_tag }}
+          LAST_VERSION: ${{ steps.release.outputs.last_release_version }}
+          LAST_TAG: ${{ steps.release.outputs.last_release_git_tag }}
+        run: |
+          echo "published=$PUBLISHED version=$VERSION tag=$TAG last=$LAST_VERSION last_tag=$LAST_TAG"
+          fail=0
+          [ "$PUBLISHED" = "true" ] || { echo "FAIL: new_release_published should be true"; fail=1; }
+          [ "$VERSION" = "1.1.0" ] || { echo "FAIL: version should be 1.1.0"; fail=1; }
+          [ "$TAG" = "release-1.1.0" ] || { echo "FAIL: tag should be release-1.1.0"; fail=1; }
+          [ "$LAST_VERSION" = "1.0.0" ] || { echo "FAIL: last_release_version should be 1.0.0"; fail=1; }
+          [ "$LAST_TAG" = "release-1.0.0" ] || { echo "FAIL: last_release_git_tag should be release-1.0.0"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "PASS"

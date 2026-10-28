@@ -1,0 +1,61 @@
+name: Test extra_plugins installs the conventionalcommits preset
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a scratch git repo with an existing v1.0.0 tag
+        run: |
+          set -e
+          REPO=/tmp/sr-extra/repo
+          REMOTE=/tmp/sr-extra/remote.git
+          rm -rf /tmp/sr-extra
+          mkdir -p /tmp/sr-extra
+          git init -q --bare "$REMOTE"
+          git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
+          git init -q "$REPO"
+          cd "$REPO"
+          git checkout -q -b main
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          cat > .releaserc.json <<'EOF'
+          {
+            "plugins": [
+              ["@semantic-release/commit-analyzer", { "preset": "conventionalcommits" }],
+              ["@semantic-release/release-notes-generator", { "preset": "conventionalcommits" }]
+            ]
+          }
+          EOF
+          git add .releaserc.json
+          git commit -q -m "feat: initial feature"
+          git tag v1.0.0
+          echo "breaking" > api.txt
+          git add api.txt
+          git commit -q -m "feat!: drop the old api"
+          git remote add origin "$REMOTE"
+          git push -q origin main --tags
+      - id: release
+        uses: .
+        with:
+          working_directory: /tmp/sr-extra/repo
+          repository_url: file:///tmp/sr-extra/remote.git
+          branches: main
+          dry_run: 'true'
+          unset_gha_env: 'true'
+          extra_plugins: |
+            conventional-changelog-conventionalcommits
+      - name: Assert the breaking change produced a 2.0.0 release
+        env:
+          PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          VERSION: ${{ steps.release.outputs.new_release_version }}
+          LAST_VERSION: ${{ steps.release.outputs.last_release_version }}
+        run: |
+          echo "published=$PUBLISHED version=$VERSION last=$LAST_VERSION"
+          fail=0
+          [ "$PUBLISHED" = "true" ] || { echo "FAIL: new_release_published should be true"; fail=1; }
+          [ "$VERSION" = "2.0.0" ] || { echo "FAIL: version should be 2.0.0 (conventionalcommits '!' => major)"; fail=1; }
+          [ "$LAST_VERSION" = "1.0.0" ] || { echo "FAIL: last_release_version should be 1.0.0"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "PASS"
